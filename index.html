@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CJ ONESHOP | Repair Desk</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f3f5f9;color:#202b3c;font-family:Arial,sans-serif}
+header{background:#17243a;color:white;padding:20px 5%;display:flex;justify-content:space-between;align-items:center;gap:12px}
+header h2{margin:0;font-size:21px}
+header small{color:#b9c5d7}
+button{border:0;border-radius:7px;padding:10px 15px;cursor:pointer;font-weight:bold}
+.primary{background:#1769d2;color:white}
+.danger{background:#fee2e2;color:#b91c1c}
+.secondary{background:#e5eaf1;color:#26364c}
+main{max-width:1200px;margin:25px auto;padding:0 16px}
+.panel{background:white;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 2px 10px #17243a0b}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat{background:#f6f8fb;padding:18px;border-radius:9px}
+.stat strong{display:block;font-size:27px;margin-bottom:5px}
+input,select{padding:11px;border:1px solid #d6dce5;border-radius:7px;width:100%;background:white;color:#202b3c}
+label{font-size:13px;font-weight:bold;display:block;margin-bottom:6px}
+.formgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.field{min-width:0}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.toolbar{display:flex;gap:10px;margin-bottom:15px}
+.toolbar input{flex:1}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:700px;text-align:left}
+th,td{padding:13px 10px;border-bottom:1px solid #edf0f4;font-size:14px}
+th{background:#f7f8fa}
+.status{display:inline-block;padding:5px 9px;border-radius:20px;font-size:12px;background:#e9eef5}
+.status.Pending{background:#fff2cc;color:#8a5a00}
+.status.Ongoing{background:#dbeafe;color:#1d4ed8}
+.status.Completed,.status.Claimed{background:#dcfce7;color:#166534}
+.status.Cancelled{background:#fee2e2;color:#991b1b}
+#app,#login{display:none}
+#message{margin-top:12px;font-size:14px}
+.muted{color:#78869a;font-size:13px}
+@media(max-width:650px){
+ .cards{grid-template-columns:repeat(2,1fr)}
+ .formgrid{grid-template-columns:1fr}
+ header{padding:16px}
+ header h2{font-size:17px}
+ .panel{padding:14px}
+ .toolbar{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<header>
+ <div>
+  <h2>CJ ONESHOP</h2>
+  <small>REPAIR MONITORING DESK</small>
+ </div>
+ <button id="logout" class="secondary" style="display:none">Logout</button>
+</header>
+
+<main>
+<section id="login" class="panel" style="max-width:420px;margin:60px auto">
+ <h2>Admin Login</h2>
+ <p class="muted">Sign in to manage repair records.</p>
+ <form id="loginForm">
+  <div class="field">
+   <label>Email</label>
+   <input id="loginEmail" type="email" required>
+  </div>
+  <br>
+  <div class="field">
+   <label>Password</label>
+   <input id="loginPassword" type="password" required>
+  </div>
+  <br>
+  <button class="primary" style="width:100%">Login</button>
+ </form>
+ <p id="loginMessage"></p>
+</section>
+
+<section id="app">
+ <div class="cards panel">
+  <div class="stat"><strong id="total">0</strong><span>Total Repairs</span></div>
+  <div class="stat"><strong id="pending">0</strong><span>Pending</span></div>
+  <div class="stat"><strong id="ongoing">0</strong><span>Ongoing</span></div>
+  <div class="stat"><strong id="completed">0</strong><span>Completed</span></div>
+ </div>
+
+ <div class="panel">
+  <h2 id="formTitle">Add New Repair</h2>
+  <form id="repairForm">
+   <div class="formgrid">
+    <div class="field">
+     <label>Item / Repair *</label>
+     <input id="item" placeholder="e.g. Laptop No Display" required>
+    </div>
+    <div class="field">
+     <label>Date *</label>
+     <input id="date" type="date" required>
+    </div>
+    <div class="field">
+     <label>Package</label>
+     <input id="package" placeholder="e.g. Basic Repair">
+    </div>
+    <div class="field">
+     <label>Status</label>
+     <select id="status">
+      <option>Pending</option>
+      <option>Ongoing</option>
+      <option>Waiting for Parts</option>
+      <option>Completed</option>
+      <option>Claimed</option>
+      <option>Cancelled</option>
+     </select>
+    </div>
+    <div class="field" style="grid-column:1/-1">
+     <label>Customer Email</label>
+     <input id="email" type="email" placeholder="customer@email.com">
+    </div>
+   </div>
+   <div class="actions">
+    <button class="primary" id="saveButton">Save Repair</button>
+    <button type="button" class="secondary" id="cancelEdit" style="display:none">Cancel Edit</button>
+   </div>
+   <p id="message"></p>
+  </form>
+ </div>
+
+ <div class="panel">
+  <h2>Repair Records</h2>
+  <div class="toolbar">
+   <input id="search" placeholder="Search item, package or email...">
+   <select id="filter" style="max-width:190px">
+    <option value="">All Statuses</option>
+    <option>Pending</option>
+    <option>Ongoing</option>
+    <option>Waiting for Parts</option>
+    <option>Completed</option>
+    <option>Claimed</option>
+    <option>Cancelled</option>
+   </select>
+   <button class="secondary" id="export">Export CSV</button>
+  </div>
+  <div class="tablewrap">
+   <table>
+    <thead>
+     <tr>
+      <th>Item / Repair</th>
+      <th>Date</th>
+      <th>Package</th>
+      <th>Status</th>
+      <th>Email</th>
+      <th>Actions</th>
+     </tr>
+    </thead>
+    <tbody id="records"></tbody>
+   </table>
+  </div>
+  <p id="recordCount" class="muted"></p>
+ </div>
+</section>
+</main>
+
+<script>
+const SUPABASE_URL = "https://xwemrxbhpvdwpqmagylj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_UkzeNK5CcHWXvROOUZrqng_X-eyM9Iq";
+
+
+
+const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let repairs = [];
+let editingId = null;
+
+const $ = id => document.getElementById(id);
+
+function show(id) {
+ $("login").style.display = id === "login" ? "block" : "none";
+ $("app").style.display = id === "app" ? "block" : "none";
+ $("logout").style.display = id === "app" ? "block" : "none";
+}
+
+function message(text, error=false) {
+ $("message").textContent = text;
+ $("message").style.color = error ? "#dc2626" : "#15803d";
+}
+
+function setToday() {
+ $("date").value = new Date().toLocaleDateString("en-CA");
+}
+
+async function loadRepairs() {
+ message("Loading records...");
+ const {data,error} = await db.from("repairs")
+  .select("*").order("repair_date",{ascending:false});
+
+ if(error) {
+  message(error.message,true);
+  return;
+ }
+ repairs = data || [];
+ render();
+ message("");
+}
+
+function render() {
+ const search = $("search").value.toLowerCase();
+ const filter = $("filter").value;
+
+ const filtered = repairs.filter(r => {
+  const text = [r.item_repair,r.package,r.email]
+   .join(" ").toLowerCase();
+  return text.includes(search) && (!filter || r.status === filter);
+ });
+
+ $("total").textContent = repairs.length;
+ $("pending").textContent = repairs.filter(r=>r.status==="Pending").length;
+ $("ongoing").textContent = repairs.filter(r=>r.status==="Ongoing").length;
+ $("completed").textContent = repairs.filter(r=>r.status==="Completed").length;
+ $("recordCount").textContent = filtered.length + " record(s) shown";
+
+ const body = $("records");
+ body.replaceChildren();
+
+ filtered.forEach(r => {
+  const tr = document.createElement("tr");
+  const values = [
+   r.item_repair,r.repair_date,r.package || "—",
+   r.status,r.email || "—"
+  ];
+
+  values.forEach((value,i) => {
+   const td = document.createElement("td");
+   if(i===3) {
+    const span = document.createElement("span");
+    span.className = "status " + r.status;
+    span.textContent = value;
+    td.append(span);
+   } else {
+    td.textContent = value;
+   }
+   tr.append(td);
+  });
+
+  const actions = document.createElement("td");
+  const edit = document.createElement("button");
+  edit.className = "secondary";
+  edit.textContent = "Edit";
+  edit.onclick = () => editRepair(r);
+
+  const del = document.createElement("button");
+  del.className = "danger";
+  del.textContent = "Delete";
+  del.style.marginLeft = "5px";
+  del.onclick = () => deleteRepair(r.id);
+
+  actions.append(edit,del);
+  tr.append(actions);
+  body.append(tr);
+ });
+}
+
+$("repairForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ $("saveButton").disabled = true;
+ message("Saving...");
+
+ const record = {
+  item_repair:$("item").value.trim(),
+  repair_date:$("date").value,
+  package:$("package").value.trim(),
+  status:$("status").value,
+  email:$("email").value.trim()
+ };
+
+ let result;
+ if(editingId) {
+  result = await db.from("repairs").update(record).eq("id",editingId);
+ } else {
+  result = await db.from("repairs").insert(record);
+ }
+
+ $("saveButton").disabled = false;
+
+ if(result.error) {
+  message(result.error.message,true);
+  return;
+ }
+
+ resetForm();
+ message("Repair record saved successfully!");
+ await loadRepairs();
+});
+
+function editRepair(r) {
+ editingId = r.id;
+ $("item").value = r.item_repair;
+ $("date").value = r.repair_date;
+ $("package").value = r.package || "";
+ $("status").value = r.status;
+ $("email").value = r.email || "";
+ $("formTitle").textContent = "Edit Repair";
+ $("saveButton").textContent = "Update Repair";
+ $("cancelEdit").style.display = "inline-block";
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function resetForm() {
+ editingId = null;
+ $("repairForm").reset();
+ setToday();
+ $("formTitle").textContent = "Add New Repair";
+ $("saveButton").textContent = "Save Repair";
+ $("cancelEdit").style.display = "none";
+}
+
+$("cancelEdit").onclick = resetForm;
+
+async function deleteRepair(id) {
+ if(!confirm("Delete this repair record?")) return;
+ const {error} = await db.from("repairs").delete().eq("id",id);
+ if(error) {
+  message(error.message,true);
+  return;
+ }
+ message("Record deleted.");
+ await loadRepairs();
+}
+
+$("search").addEventListener("input",render);
+$("filter").addEventListener("change",render);
+
+$("export").onclick = () => {
+ const headers = ["Item / Repair","Date","Package","Status","Email"];
+ const rows = repairs.map(r=>[
+  r.item_repair,r.repair_date,r.package,r.status,r.email
+ ]);
+ const csv = [headers,...rows].map(row=>
+  row.map(v=>'"'+String(v??"").replace(/"/g,'""')+'"').join(",")
+ ).join("\r\n");
+
+ const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement("a");
+ a.href = url;
+ a.download = "CJ-ONESHOP-Repair-Records.csv";
+ a.click();
+ URL.revokeObjectURL(url);
+};
+
+$("loginForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ $("loginMessage").textContent = "Signing in...";
+ const {error} = await db.auth.signInWithPassword({
+  email:$("loginEmail").value,
+  password:$("loginPassword").value
+ });
+ if(error) $("loginMessage").textContent = error.message;
+});
+
+$("logout").onclick = async () => {
+ await db.auth.signOut();
+};
+
+db.auth.onAuthStateChange((event,session)=>{
+ if(session) {
+  show("app");
+  if(event === "SIGNED_IN") loadRepairs();
+ } else {
+  show("login");
+ }
+});
+
+setToday();
+db.auth.getSession().then(({data})=>{
+ if(data.session) {
+  show("app");
+  loadRepairs();
+ } else {
+  show("login");
+ }
+});
+</script>
+</body>
+</html>
